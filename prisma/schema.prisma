@@ -1,0 +1,317 @@
+// This is your Prisma schema file
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modèle Utilisateur
+model Utilisateur {
+  id                Int           @id @default(autoincrement())
+  nom               String
+  prenom            String
+  email             String        @unique
+  telephone         String?
+  identifiant       String        @unique
+  mot_de_passe      String
+  date_creation     DateTime      @default(now())
+  derniere_connexion DateTime?
+  actif             Boolean       @default(true)
+  
+  // Relations
+  roles             RoleUtilisateur[]
+  missions_creees   Mission[]     @relation("Createur")
+  participations    Affectation[]
+  commentaires      Commentaire[]
+  notifications     Notification[]
+  evenements        Evenement[]   @relation("Participants")
+  preventifs        Preventif[]   // Relation avec Preventif
+  
+  @@map("utilisateurs")
+}
+
+// Modèle Role
+model Role {
+  id          Int               @id @default(autoincrement())
+  nom         String            @unique
+  description String?
+  
+  // Relations
+  utilisateurs RoleUtilisateur[]
+  permissions  RolePermission[]
+  
+  @@map("roles")
+}
+
+// Table de jointure entre Rôle et Utilisateur
+model RoleUtilisateur {
+  utilisateur    Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+  utilisateurId  Int
+  role           Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId         Int
+  date_attribution DateTime  @default(now())
+
+  @@id([utilisateurId, roleId])
+  @@map("role_utilisateurs")
+}
+
+// Modèle Permission
+model Permission {
+  id          Int               @id @default(autoincrement())
+  code        String            @unique
+  description String?
+  
+  // Relations
+  roles       RolePermission[]
+  
+  @@map("permissions")
+}
+
+// Table de jointure entre Rôle et Permission
+model RolePermission {
+  role         Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId       Int
+  permission   Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  permissionId Int
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// Énumération pour les statuts de mission
+enum StatutMission {
+  CREEE
+  PLANIFIEE
+  EN_COURS
+  EN_PAUSE
+  TERMINEE
+  VALIDEE
+  ARCHIVEE
+}
+
+// Modèle Mission
+model Mission {
+  id             Int           @id @default(autoincrement())
+  titre          String
+  description    String?
+  date_creation  DateTime      @default(now())
+  date_debut     DateTime?
+  date_fin       DateTime?
+  statut         StatutMission @default(CREEE)
+  priorite       Int           @default(1)
+  client         String?
+  reference_odoo String?       @unique
+  
+  // Relations
+  createur       Utilisateur   @relation("Createur", fields: [createurId], references: [id])
+  createurId     Int
+  affectations   Affectation[]
+  commentaires   Commentaire[]
+  notifications  Notification[]
+  rapports       Rapport[]
+  evenements     Evenement[]
+  equipements    Equipement[]  // Relation avec Equipement
+  preventifs     Preventif[]   // Relation avec Preventif
+  
+  @@map("missions")
+}
+
+// Modèle Affectation
+model Affectation {
+  id                Int       @id @default(autoincrement())
+  date_affectation  DateTime  @default(now())
+  role_mission      String
+  commentaire       String?
+  
+  // Relations
+  mission           Mission    @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  missionId         Int
+  utilisateur       Utilisateur @relation(fields: [utilisateurId], references: [id])
+  utilisateurId     Int
+  
+  @@map("affectations")
+}
+
+// Modèle Commentaire
+model Commentaire {
+  id             Int       @id @default(autoincrement())
+  contenu        String
+  date_creation  DateTime  @default(now())
+  type           String?
+  
+  // Relations
+  mission        Mission    @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  missionId      Int
+  utilisateur    Utilisateur @relation(fields: [utilisateurId], references: [id])
+  utilisateurId  Int
+  
+  @@map("commentaires")
+}
+
+// Modèle Notification
+model Notification {
+  id          Int       @id @default(autoincrement())
+  titre       String
+  contenu     String
+  date_envoi  DateTime  @default(now())
+  lu          Boolean   @default(false)
+  
+  // Relations
+  mission     Mission?   @relation(fields: [missionId], references: [id], onDelete: SetNull)
+  missionId   Int?
+  utilisateur Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+  utilisateurId Int
+  
+  @@map("notifications")
+}
+
+// Modèle Rapport
+model Rapport {
+  id                Int      @id @default(autoincrement())
+  titre             String
+  contenu           String
+  date_creation     DateTime @default(now())
+  date_modification DateTime @default(now())
+  version           String
+  format            String?
+  
+  // Relations
+  mission           Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  missionId         Int
+  equipement        Equipement? @relation(fields: [equipementId], references: [id])
+  equipementId      Int?
+  
+  @@map("rapports")
+}
+
+// Modèle Calendrier
+model Calendrier {
+  id          Int       @id @default(autoincrement())
+  titre       String
+  description String?
+  
+  // Relations
+  evenements  Evenement[]
+  
+  @@map("calendriers")
+}
+
+// Modèle Evenement
+model Evenement {
+  id          Int       @id @default(autoincrement())
+  titre       String
+  description String?
+  date_debut  DateTime
+  date_fin    DateTime
+  lieu        String?
+  recurrence  String?
+  
+  // Relations
+  calendrier      Calendrier @relation(fields: [calendrierId], references: [id])
+  calendrierId    Int
+  mission         Mission?   @relation(fields: [missionId], references: [id], onDelete: SetNull)
+  missionId       Int?
+  participants    Utilisateur[] @relation("Participants")
+  
+  @@map("evenements")
+}
+
+// Modèle IntegrationODOO
+model IntegrationODOO {
+  id              Int      @id @default(autoincrement())
+  url_api         String
+  api_key         String
+  derniere_synchro DateTime?
+  config          Json?    // Stocke les configurations sous forme de JSON
+  
+  @@map("integration_odoo")
+}
+
+// Modèle Statistique
+model Statistique {
+  id           Int      @id @default(autoincrement())
+  titre        String
+  description  String?
+  donnees      Json     // Stocke les données sous forme de JSON
+  date_calcul  DateTime @default(now())
+  
+  // Relations
+  widgets      Widget[]
+  
+  @@map("statistiques")
+}
+
+// Modèle TableauBord
+model TableauBord {
+  id          Int      @id @default(autoincrement())
+  titre       String
+  description String?
+  
+  // Relations
+  widgets     Widget[]
+  
+  @@map("tableaux_bord")
+}
+
+// Modèle Widget
+model Widget {
+  id          Int       @id @default(autoincrement())
+  titre       String
+  type        String
+  donnees     Json?     // Stocke les données sous forme de JSON
+  parametres  Json?     // Stocke les paramètres sous forme de JSON
+  
+  // Relations
+  tableauBord    TableauBord @relation(fields: [tableauBordId], references: [id], onDelete: Cascade)
+  tableauBordId  Int
+  statistique    Statistique? @relation(fields: [statistiqueId], references: [id])
+  statistiqueId  Int?
+  
+  @@map("widgets")
+}
+
+// Modèle Equipement
+model Equipement {
+  id                  Int       @id @default(autoincrement())
+  code_imo            String    @unique
+  nom_testeur         String
+  designation         String
+  date_mise_en_marche DateTime?
+  arborescence        String?   // Emplacement de l'équipement
+  date_garantie       DateTime?
+  
+  // Relations
+  rapports            Rapport[]
+  missions            Mission[]
+  preventifs          Preventif[]
+  
+  @@map("equipements")
+}
+
+// Modèle Preventif
+model Preventif {
+  id                 Int       @id @default(autoincrement())
+  titre              String
+  description        String?
+  date_planifiee     DateTime
+  date_realisation   DateTime?
+  statut             String    @default("PLANIFIE") // PLANIFIE, REALISE, ANNULE, etc.
+  commentaire        String?
+  frequence          String?   // Mensuelle, trimestrielle, annuelle, etc.
+  duree_estimee      Int?      // Durée estimée en minutes
+  
+  // Relations
+  equipement         Equipement @relation(fields: [equipementId], references: [id])
+  equipementId       Int
+  responsable        Utilisateur? @relation(fields: [responsableId], references: [id])
+  responsableId      Int?
+  mission            Mission? @relation(fields: [missionId], references: [id])
+  missionId          Int?
+  
+  @@map("preventifs")
+}
