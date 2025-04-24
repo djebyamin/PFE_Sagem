@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { redirect, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -29,7 +29,6 @@ import { Input } from "@/components/ui/input";
 
 import logo from "@/app/sagem.png";
 import Googlesign from "@/app/googlesignin";
-import { auth } from "../auth";
 
 // Zod schema
 const signinSchema = z.object({
@@ -37,8 +36,7 @@ const signinSchema = z.object({
   password: z.string().min(6, { message: "Mot de passe requis (min. 6 caractères)." }),
 });
 
-export default function SigninPage() {
-  
+export default function SigninPageClient() {
   const router = useRouter();
 
   const form = useForm({
@@ -51,18 +49,16 @@ export default function SigninPage() {
 
   const onSubmit = async (values: z.infer<typeof signinSchema>) => {
     try {
-      // Remplacer par votre logique de connexion (API / Auth)
+      // Remplacer par votre logique d’authentification (API / server action)
       console.log("Connexion avec :", values);
+
       toast.success("Connexion réussie !");
-      router.push("/dashboard"); // Redirection après connexion
-    } catch (error: any) {
+      router.push("/dashboard");
+    } catch (error) {
       toast.error("Erreur lors de la connexion.");
     }
   };
- const Page=async()=>{
-    const session =await auth() ;
-    if (session) redirect("/")
- }
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <Card className="w-full max-w-md">
@@ -72,23 +68,16 @@ export default function SigninPage() {
           <CardDescription className="text-center">
             Connectez-vous à votre compte
           </CardDescription>
-
-          {/* Google SignIn Button */}
           <Googlesign />
-
         </CardHeader>
-        <CardContent>
-          {/* Bouton Google */}
-          
 
-          {/* Séparateur "ou" */}
+        <CardContent>
           <div className="flex items-center gap-2 my-4">
             <div className="h-px bg-gray-300 flex-1" />
             <span className="text-sm text-gray-500">ou</span>
             <div className="h-px bg-gray-300 flex-1" />
           </div>
 
-          {/* Formulaire email/mot de passe */}
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
@@ -132,10 +121,12 @@ export default function SigninPage() {
             </a>
           </div>
         </CardContent>
+
         <CardFooter className="flex justify-center text-sm text-gray-500">
           <p>Besoin d'aide ? Contactez-nous</p>
         </CardFooter>
       </Card>
+
       <ToastContainer />
     </div>
   );

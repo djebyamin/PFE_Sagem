@@ -1,12 +1,13 @@
-import { auth } from "../auth";
+// app/signin/page.tsx
 import { redirect } from "next/navigation";
-import SignInForm from "./signinform";
+import { auth } from "../auth"; // adapte selon ton projet
+import SigninPageClient from "./signinform";
 
-// Composant serveur pour la vérification de session
-export default async function Page() {
+export default async function SigninPageWrapper() {
   const session = await auth();
-  if (session) redirect("/dashboard");
-  
-  // Rendre le formulaire client
-  return <SignInForm />;
+  if (session) {
+    redirect("/dashboard");
+  }
+
+  return <SigninPageClient />;
 }
