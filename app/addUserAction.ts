@@ -1,10 +1,10 @@
-// app/utilisateurs/ajouter/action.ts
 'use server';
 
 import { PrismaClient } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { saltAndHashPassword } from '@/app/utils/saltAndHashPassword';
+import { createPartnerInOdoo } from '@/app/utils/odooService'; // <- nouvel import
 
 const prisma = new PrismaClient();
 
@@ -73,6 +73,26 @@ export async function ajouterUtilisateur(formData: FormData) {
         }
       }
     });
+
+    // Log les données envoyées à Odoo avant d'appeler la fonction
+    console.log('Tentative de création du partenaire dans Odoo avec les données :', {
+      nom_complet: `${validatedData.prenom} ${validatedData.nom}`,
+      email: validatedData.email,
+      telephone: validatedData.telephone
+    });
+
+    // Appel à la fonction pour créer un partenaire dans Odoo
+    try {
+      await createPartnerInOdoo(
+        `${validatedData.prenom} ${validatedData.nom}`,
+        validatedData.email,
+        validatedData.telephone
+      );
+      console.log('Création du partenaire dans Odoo réussie');
+    } catch (odooError) {
+      console.error('Erreur lors de la création du partenaire dans Odoo:', odooError);
+      // Tu peux choisir ici d'ignorer l'erreur Odoo ou de la faire remonter
+    }
 
     // Revalider le chemin pour mettre à jour les données affichées
     revalidatePath('/utilisateurs');
