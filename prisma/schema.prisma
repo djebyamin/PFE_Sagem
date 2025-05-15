@@ -29,6 +29,8 @@ model Utilisateur {
   roles              RoleUtilisateur[]
   sessions           Session[]
   evenements         Evenement[]       @relation("Participants")
+    messages      Message[]
+  participations_conv Participant[]
 
   @@map("utilisateurs")
 }
@@ -133,8 +135,10 @@ model Mission {
   preventifs     Preventif[]
   rapports       Rapport[]
   equipements    Equipement[]   @relation("EquipementToMission")
+  conversations  Conversation[]  // Champ inverse
 
   @@map("missions")
+    RapportODOO RapportODOO[]
 }
 
 model Affectation {
@@ -223,10 +227,32 @@ model IntegrationODOO {
   id               Int       @id @default(autoincrement())
   url_api          String
   api_key          String
+  database         String    // Nom de la base de données Odoo
+  username         String    // Nom d'utilisateur Odoo
+  password         String    // Mot de passe Odoo
   derniere_synchro DateTime?
-  config           Json?
+  config           Json?     // Configuration supplémentaire au format JSON
+  actif            Boolean   @default(true)
+  rapports         RapportODOO[]
 
   @@map("integration_odoo")
+}
+
+// Nouveau modèle pour les rapports Odoo
+model RapportODOO {
+  id                Int             @id @default(autoincrement())
+  reference_odoo    String          @unique  // Référence unique dans Odoo
+  type_rapport      String          // Type de rapport (vente, achat, stock, etc.)
+  date_creation     DateTime        @default(now())
+  date_modification DateTime        @updatedAt
+  statut            String          @default("EN_ATTENTE")
+  donnees           Json            // Données du rapport
+  integrationId     Int
+  integration       IntegrationODOO @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  missionId         Int?
+  mission           Mission?        @relation(fields: [missionId], references: [id], onDelete: SetNull)
+
+  @@map("rapports_odoo")
 }
 
 model Statistique {
@@ -300,13 +326,53 @@ model Preventif {
 
   @@map("preventifs")
 }
-
 enum StatutMission {
   CREEE
   PLANIFIEE
+  AFFECTEE
   EN_COURS
   EN_PAUSE
   TERMINEE
   VALIDEE
   ARCHIVEE
+}
+model Conversation {
+  id            Int             @id @default(autoincrement())
+  titre         String?
+  date_creation DateTime        @default(now())
+  messages      Message[]
+  participants  Participant[]
+  missionId     Int?            // Optionnel: lier une conversation à une mission
+  mission       Mission?        @relation(fields: [missionId], references: [id], onDelete: SetNull)
+
+  @@map("conversations")
+}
+
+// Modèle pour les participants à une conversation
+model Participant {
+  id              Int          @id @default(autoincrement())
+  conversationId  Int
+  utilisateurId   Int
+  date_ajout      DateTime     @default(now())
+  derniere_lecture DateTime?   // Pour savoir quand l'utilisateur a lu la conversation
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  utilisateur     Utilisateur  @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, utilisateurId])
+  @@map("participants")
+}
+
+// Modèle pour les messages
+model Message {
+  id              Int          @id @default(autoincrement())
+  contenu         String
+  date_envoi      DateTime     @default(now())
+  lu              Boolean      @default(false)
+  conversationId  Int
+  expediteurId    Int
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  expediteur      Utilisateur  @relation(fields: [expediteurId], references: [id], onDelete: Cascade)
+  pieceJointeUrl  String?      // URL vers une pièce jointe (optionnel)
+
+  @@map("messages")
 }

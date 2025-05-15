@@ -140,9 +140,13 @@ export default function AjouterEquipementForm() {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
+                <SelectItem value="Bricolage">Bricolage</SelectItem>
+                <SelectItem value="Sécurité">  Sécurité</SelectItem>
                   <SelectItem value="Electronique">Electronique</SelectItem>
                   <SelectItem value="Mécanique">Mécanique</SelectItem>
                   <SelectItem value="Informatique">Informatique</SelectItem>
+                  <SelectItem value="Autre">Autre</SelectItem>
+
                 </SelectContent>
               </Select>
               <FormMessage />

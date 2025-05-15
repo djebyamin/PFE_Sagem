@@ -1,81 +1,66 @@
-import axios from 'axios';
+// utils/odooService.ts
 
-const ODOO_URL = 'http://localhost:8069/odoo/users';
-const ODOO_DB = 'odoo';
-const ODOO_USERNAME = 'admin';
-const ODOO_PASSWORD = 'admin';
+export async function createPartnerInOdoo(nomComplet: string, email: string, telephone?: string | null) {
+  const ODOO_URL = 'http://localhost:8069/jsonrpc'; // CORRECT URL for JSON-RPC
+  const ODOO_DB = 'odoo';
+  const ODOO_USERNAME = 'admin';
+  const ODOO_PASSWORD = 'admin';
 
-export async function createPartnerInOdoo(name: string, email: string, phone?: string | null) {
-  try {
-    // Authentification auprès d'Odoo
-    console.log('Tentative d\'authentification Odoo...');
-    const authResponse = await axios.post(ODOO_URL, {
+  // 1. Authentification
+  const loginResponse = await fetch(ODOO_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
       jsonrpc: '2.0',
       method: 'call',
-      id: 1,
       params: {
         service: 'common',
-        method: 'authenticate',
-        args: [ODOO_DB, ODOO_USERNAME, ODOO_PASSWORD, {}],
+        method: 'login',
+        args: [ODOO_DB, ODOO_USERNAME, ODOO_PASSWORD],
       },
-    });
+      id: 1,
+    }),
+  });
 
-    // Vérifier si l'authentification a réussi
-    const uid = authResponse.data.result;
-    if (!uid) {
-      console.error('Échec de l\'authentification avec Odoo. Réponse d\'authentification:', authResponse.data);
-      throw new Error('Erreur authentification Odoo');
-    }
-    console.log('Authentification réussie, UID:', uid);
+  const loginData = await loginResponse.json();
+  const userId = loginData.result;
 
-    // Création du partenaire dans Odoo
-    console.log('Tentative de création du partenaire dans Odoo avec les données:', { name, email, phone });
-    const createResponse = await axios.post(ODOO_URL, {
+  if (!userId) {
+    throw new Error('Échec de connexion à Odoo');
+  }
+
+  // 2. Création du partenaire
+  const createResponse = await fetch(ODOO_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
       jsonrpc: '2.0',
       method: 'call',
-      id: 2,
       params: {
         service: 'object',
         method: 'execute_kw',
         args: [
           ODOO_DB,
-          uid,
+          userId,
           ODOO_PASSWORD,
           'res.partner',
           'create',
           [{
-            name: name,
+            name: nomComplet,
             email: email,
-            phone: phone || '', // Si téléphone est vide, passer une chaîne vide
-            customer_rank: 1, // facultatif : peut être ajusté selon les besoins
+            phone: telephone || '',
           }],
         ],
       },
-    });
+      id: 2,
+    }),
+  });
 
-    // Vérification si la création a réussi et retourne l'ID du partenaire créé
-    const partnerId = createResponse.data.result;
-    if (!partnerId) {
-      console.error('Échec de la création du partenaire dans Odoo. Réponse de création:', createResponse.data);
-      throw new Error('Erreur lors de la création du partenaire dans Odoo');
-    }
+  const createData = await createResponse.json();
 
-    console.log('Partenaire créé avec succès, ID:', partnerId);
-    return partnerId; // ID du partenaire créé
-  } catch (error: unknown) { // Caster l'erreur en unknown
-    // Vérifier si c'est une instance d'Error
-    if (error instanceof Error) {
-      console.error('Erreur dans la création du partenaire dans Odoo:', error.message);
-      console.error('Stack trace:', error.stack);
-    } else {
-      console.error('Erreur inconnue lors de la création du partenaire dans Odoo:', error);
-    }
-
-    // Si l'erreur a une réponse, afficher les détails
-    if (axios.isAxiosError(error) && error.response) {
-      console.error('Détails de la réponse d\'erreur:', error.response.data);
-    }
-
-    throw error; // Propager l'erreur pour qu'elle soit gérée dans l'appelant
+  if (!createData.result) {
+    throw new Error('Échec de la création du partenaire Odoo');
   }
+
+  return createData.result;
 }
